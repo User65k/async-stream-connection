@@ -1,0 +1,20 @@
+[package]
+name = "async-stream-connection"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["net"] }
+serde = { version = "1.0", optional=true }
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt","macros","io-util"] }
+
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
