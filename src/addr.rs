@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net;
+use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use std::os::unix::net as unix;
 #[cfg(unix)]
@@ -9,7 +10,7 @@ use std::str::FromStr;
 /// Address of a Stream Endpoint
 /// ```
 /// # use async_stream_connection::Addr;
-/// # fn main() -> Result<(),std::net::AddrParseError> {
+/// # fn main() -> Result<(),std::io::Error> {
 /// let addr: Addr = "127.0.0.1:1337".parse()?;
 /// # Ok(())
 /// # }
@@ -17,11 +18,13 @@ use std::str::FromStr;
 /// or (unix only):
 /// ```
 /// # use async_stream_connection::Addr;
-/// # fn main() -> Result<(),std::net::AddrParseError> {
+/// # fn main() -> Result<(),std::io::Error> {
+/// # #[cfg(unix)]
 /// let addr: Addr = "/tmp/uds_example".parse()?;
 /// # Ok(())
 /// # }
 /// ```
+/// [`FromStr::parse`] / Deserialize also resolves to the first IP Address if it does not start with `/` or `./`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Addr {
     /// An IP socket address
@@ -79,14 +82,17 @@ impl fmt::Display for Addr {
 }
 
 impl FromStr for Addr {
-    type Err = net::AddrParseError;
+    type Err = std::io::Error;
 
     fn from_str(v: &str) -> Result<Self, Self::Err> {
         #[cfg(unix)]
         if v.starts_with('/') || v.starts_with("./") {
             return Ok(Addr::Unix(PathBuf::from(v)));
         }
-        Ok(Addr::Inet(v.parse()?))
+        match v.to_socket_addrs()?.next() {
+            Some(a) => Ok(Addr::Inet(a)),
+            None => Err(std::io::ErrorKind::AddrNotAvailable.into())
+        }        
     }
 }
 
@@ -122,21 +128,28 @@ pub(crate) mod tests {
 
     #[test]
     fn parse_addr() {
-        if let Ok(Addr::Inet(net::SocketAddr::V4(f))) = Addr::from_str("127.0.0.1:9000") {
-            assert!(f.ip().is_loopback());
-            assert_eq!(f.port(), 9000);
-        }
-        if let Ok(Addr::Inet(f)) = Addr::from_str("localhost:9000") {
-            assert_eq!(f.port(), 9000);
-        }
-        if let Ok(Addr::Inet(net::SocketAddr::V6(f))) = Addr::from_str("[::1]:9000") {
-            assert!(f.ip().is_loopback());
-            assert_eq!(f.port(), 9000);
-        }
+        assert!(if let Ok(Addr::Inet(net::SocketAddr::V4(f))) = Addr::from_str("127.0.0.1:9000") {
+            f.ip().is_loopback() && f.port() == 9000
+        }else{
+            false
+        });
+        assert!(if let Ok(Addr::Inet(f)) = Addr::from_str("localhost:9000") {
+            f.port() == 9000
+        }else{
+            println!("{:?}", Addr::from_str("localhost:9000"));
+            false
+        });
+        assert!(if let Ok(Addr::Inet(net::SocketAddr::V6(f))) = Addr::from_str("[::1]:9000") {
+            f.ip().is_loopback() && f.port() == 9000
+        }else{
+            false
+        });
         #[cfg(unix)]
-        if let Ok(Addr::Unix(f)) = Addr::from_str("/path") {
-            assert_eq!(f.as_os_str(), "/path");
-        }
+        assert!(if let Ok(Addr::Unix(f)) = Addr::from_str("/path") {
+            f == std::path::Path::new("/path")
+        }else{
+            false
+        });
     }
     #[test]
     fn display() {

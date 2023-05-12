@@ -1,6 +1,6 @@
 [package]
 name = "async-stream-connection"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 
 repository = "https://github.com/User65k/async-stream-connection"
