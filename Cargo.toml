@@ -3,6 +3,12 @@ name = "async-stream-connection"
 version = "1.0.0"
 edition = "2021"
 
+repository = "https://github.com/User65k/async-stream-connection"
+description = "AsyncRead and AsyncWrite on TCP as well as Unix sockets. "
+license = "MIT"
+keywords = ["tcp", "uds", "tokio", "async"]
+readme = "README.md"
+
 [dependencies]
 tokio = { version = "1", features = ["net"] }
 serde = { version = "1.0", optional=true }
